@@ -1,0 +1,98 @@
+<?php
+/**
+ * @file
+ * Code for the Search API Merchandizing feature.
+ */
+
+include_once 'search_api_merchandizing.features.inc';
+
+/**
+ * Implements hook_ctools_plugin_type().
+ */
+function search_api_merchandizing_ctools_plugin_type() {
+  return array(
+    'items' => array(
+      'use hooks' => TRUE,
+    ),
+  );
+}
+
+/**
+ * Returns an array of available current search plugins.
+ *
+ * @return array
+ *   An associative array keyed by plugin ID to human readable label.
+ */
+function search_api_merchandizing_get_plugins() {
+  $plugins = &drupal_static(__FUNCTION__, array());
+  if (!$plugins) {
+    foreach (ctools_get_plugins('search_api_merchandizing', 'items') as $id => $plugin) {
+      $plugins[$id] = $plugin['handler']['label'];
+    }
+  }
+  return $plugins;
+}
+
+/**
+ * Implements hook_current_search_items().
+ */
+function search_api_merchandizing_current_search_items() {
+  return array(
+    'merchandizing' => array(
+      'handler' => array(
+        'label' => t('Merchandizing'),
+        'class' => 'CurrentSearchItemMerchandizing',
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function search_api_merchandizing_menu() {
+  $items = array();
+
+  $items['admin/ydesign/taxonomy/autocomplete'] = array(
+    'title' => 'ydesign taxonomy autocomplete',
+    'page callback' => 'search_api_merchandizing_taxonomy_autocomplete',
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Autocomplete callback for searching taxonomy ids.
+ */
+function search_api_merchandizing_taxonomy_autocomplete($string) {
+  $matches = array();
+  $matches = _search_api_merchandizing_taxonomy_search($string);
+  return drupal_json_output($matches);
+}
+
+/**
+ * Callback to search for the taxonomy term.
+ */
+function _search_api_merchandizing_taxonomy_search($string) {
+  $results = &drupal_static(__FUNCTION__, array());
+  $string = trim($string);
+  $cid = 'ydesign-taxonomy-auto-' . $string;
+
+  if (!isset($results[$cid])) {
+    $terms = taxonomy_get_term_by_name($string);
+    $vocabularies = taxonomy_get_vocabularies();
+
+    $formatted_matches = array();
+    if (count($terms)) {
+      foreach ($terms as $term) {
+        $vocabulary_name = $vocabularies[$term->vid]->name;
+        $formatted_matches[$term->tid] = $vocabulary_name . ': ' . $term->name;
+      }
+    }
+    $results[$cid] = $formatted_matches;
+  }
+
+  return $results[$cid];
+}
