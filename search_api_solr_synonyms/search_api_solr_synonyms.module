@@ -45,6 +45,7 @@ function search_api_solr_synonyms_facet_items_alter(&$build, &$settings) {
               array_pop($path);
               $path_index = '$build[' . implode("]['#item_children'][", $path) . "]['#markup']";
               if (count($path)) {
+                // Avoid eval as much as possible.  Using here to accomodate complex facet hierarchies.
                 eval('if (isset(' . $path_index . ')) {' . $path_index . '="' . $markup . '";}');
               }
             }
