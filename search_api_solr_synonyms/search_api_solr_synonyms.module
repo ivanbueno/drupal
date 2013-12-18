@@ -1,0 +1,278 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function search_api_solr_synonyms_menu() {
+  $items = array();
+  $items['admin/config/search/search_api/settings'] = array(
+    'title' => 'Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('search_api_solr_synonyms_settings_form'),
+    'description' => 'Set weights for your facets within the facet container block.',
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'search_api_solr_synonyms.admin.inc',
+  );
+  return $items;
+}
+
+function search_api_solr_synonyms_facet_items_alter(&$build, &$settings) {
+  $facet_rename = &drupal_static(__FUNCTION__);
+  if (!isset($facet_rename)) {
+    $facet_aliases = array_map('trim', explode("\n", variable_get('search_api_solr_synonyms_facet_rename', array())));
+    if (count($facet_aliases)) {
+      foreach ($facet_aliases as $fa) {
+        list($facet_name, $facet_pair) = explode('~~', $fa);
+        list($facet_key, $facet_markup) = explode('==', $facet_pair);
+        $facet_rename[$facet_name][$facet_key] = $facet_markup;
+      }
+    }
+  }
+
+  if (count($facet_rename)) {
+    if (in_array(trim($settings->facet), array_keys($facet_rename))) {
+      if (isset($facet_rename[$settings->facet])) {
+        foreach ($facet_rename[$settings->facet] as $key => $markup) {
+          if (isset($facet_rename[$settings->facet][$key])) {
+            if (isset($build[$key]['#markup'])) {
+              $build[$key]['#markup'] = $markup;
+            }
+            else {
+              $path = array();
+              $path_found = search_api_solr_synonyms_array_find($build, $key, $path);
+              $path = array_unique(array_filter($path, 'is_numeric'));
+              array_pop($path);
+              $path_index = '$build[' . implode("]['#item_children'][", $path) . "]['#markup']";
+              if (count($path)) {
+                eval('if (isset(' . $path_index . ')) {' . $path_index . '="' . $markup . '";}');
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+function search_api_solr_synonyms_array_find(array $array, $string, array &$result) {
+  foreach ($array as $key => $value) {
+    if (is_array($value)) {
+      $success = search_api_solr_synonyms_array_find($value, $string, $result);
+      if ($success) {
+        array_unshift($result, $key);
+        return TRUE;
+      }
+    }
+    else {
+      if (strcmp($string, $key) == 0) {
+        array_unshift($result, $key);
+        return TRUE;
+      }
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_search_api_alter_callback_info().
+ */
+function search_api_solr_synonyms_search_api_alter_callback_info() {
+  $callbacks['commerce_search_api_empty_product_display_filter'] = array(
+    'name' => t('Empty Product Display filter'),
+    'description' => t("Exclude product display nodes that do not have an lf_id."),
+    'class' => 'CommerceSearchApiEmptyProductDisplayFilter',
+    // Filters should be executed first.
+    'weight' => -11,
+  );
+  $callbacks['commerce_search_api_active_price_alter'] = array(
+    'name' => t('Active Price'),
+    'description' => t("Choose an active price between the price and the sale price"),
+    'class' => 'SearchApiActivePriceAlter',
+    // Filters should be executed first.
+    'weight' => -10,
+  );
+  $callbacks['commerce_search_api_item_boost_alter'] = array(
+    'name' => t('Boost Items'),
+    'description' => t("Boost items based on a given score."),
+    'class' => 'SearchApiBoostItemsAlter',
+    'weight' => -9,
+  );
+  return $callbacks;
+}
+
+/**
+ * Implements hook_search_api_query_alter().
+ */
+function search_api_solr_synonyms_search_api_query_alter(SearchApiQueryInterface $query) {
+
+  $keys = $query->getKeys();
+  if (isset($keys['#conjunction'])) {
+    unset($keys['#conjunction']);
+  }
+
+  if (count($keys)) {
+    $key_text = trim(implode(' ', $keys));
+
+    // Keyword Redirect
+    $redirect = search_api_solr_synonyms_get_redirect($key_text);
+    if ($redirect) {
+      drupal_goto($redirect);
+      return;
+    }
+
+    // Exact Synonym
+    $search_text = search_api_solr_synonyms_get_synonym($key_text);
+
+    // Facet Matching
+    $index = $query->getIndex();
+    if ($index->server()->supportsFeature('search_api_facets')) {
+      $facet = search_api_solr_synonyms_get_taxonomy_term($search_text);
+      if ($facet) {
+        drupal_goto('search', array('query' => array('f[0]' => $facet['vocabulary'] . ':' . $facet['tid'])));
+        return;
+      }
+      elseif ($search_text != $key_text) {
+        $query->keys($search_text);
+      }
+    }
+
+  }
+}
+
+function search_api_solr_synonyms_get_synonym($name) {
+  $name = strtolower(trim($name));
+
+  $synonyms = &drupal_static(__FUNCTION__);
+  if (!isset($synonyms)) {
+    if ($syncache = cache_get('search_api_solr_synonyms_facet_synonym')) {
+      $synonyms = $syncache->data;
+    }
+    else {
+      $syn = array_map('trim', explode("\n", trim(variable_get('search_api_solr_synonyms_facet_synonym', array()))));
+      $synonyms = array();
+      if (count($syn)) {
+        foreach ($syn as $synline) {
+          list($wordstring, $wordtarget) = explode('=', $synline);
+          $wordtarget = strtolower($wordtarget);
+          $wordsubjects = array_map('strtolower', array_map('trim', explode(',', $wordstring)));
+          if (count($wordsubjects)) {
+            foreach ($wordsubjects as $ws) {
+              $synonyms[$ws] = $wordtarget;
+            }
+          }
+        }
+      }
+      cache_set('search_api_solr_synonyms_facet_synonym', $synonyms, 'cache');
+    }
+  }
+
+  if (isset($synonyms[$name])) {
+    return $synonyms[$name];
+  }
+
+  return $name;
+}
+
+function search_api_solr_synonyms_get_redirect($name) {
+  $name = strtolower(trim($name));
+
+  $redirect = &drupal_static(__FUNCTION__);
+  if (!isset($redirect)) {
+    if ($redcache = cache_get('search_api_solr_synonyms_facet_keyword_redirect')) {
+      $redirect = $redcache->data;
+    }
+    else {
+      $redir = array_map('trim', explode("\n", trim(variable_get('search_api_solr_synonyms_facet_keyword_redirect', ''))));
+      $redirect = array();
+      if (count($redir)) {
+        foreach ($redir as $synline) {
+          list($wordstring, $wordtarget) = explode('=', $synline, 2);
+          $wordtarget = strtolower($wordtarget);
+          $wordsubjects = array_map('strtolower', array_map('trim', explode(',', $wordstring)));
+          if (count($wordsubjects)) {
+            foreach ($wordsubjects as $ws) {
+              $redirect[$ws] = $wordtarget;
+            }
+          }
+        }
+      }
+      cache_set('search_api_solr_synonyms_facet_keyword_redirect', $redirect, 'cache');
+    }
+  }
+
+  if (isset($redirect[$name])) {
+    return $redirect[$name];
+  }
+
+  return FALSE;
+}
+
+/**
+ * Helper that returns the tid of a taxonomy term across given vocabularies.
+ */
+function search_api_solr_synonyms_get_taxonomy_term($name) {
+  if (empty($name)) {
+    return FALSE;
+  }
+
+  $machine_name = preg_replace('@[^a-z0-9_]+@',  '_', strtolower($name));
+  if ($cache_term = cache_get('search_facet_term_' . $machine_name)) {
+    return $cache_term->data;
+  }
+
+  $voc_lines = array_map('trim', explode("\n", trim(variable_get('search_api_solr_synonyms_facet_key_map_voc', array()))));
+  $vocabularies = array();
+  if (count($voc_lines)) {
+    foreach ($voc_lines as $vl) {
+      list($tid, $vname) = explode(',', $vl);
+      $vocabularies[$tid] = $vname;
+    }
+  }
+  $vids = array_keys($vocabularies);
+  $matches = array();
+
+  // let's optimize the query
+  $result = db_query("SELECT ttd.vid, ttd.tid, count(ti.tid) as tid_freq 
+    FROM {taxonomy_term_data} ttd 
+    LEFT JOIN {taxonomy_index} ti ON ttd.tid = ti.tid
+    LEFT JOIN {field_data_field_item_orderable} fio ON fio.entity_id = ti.nid 
+    WHERE ttd.name LIKE :string 
+    AND fio.field_item_orderable_value = 1
+    AND ttd.vid IN (:vids) 
+    GROUP BY ti.tid 
+    ORDER BY tid_freq DESC LIMIT 1", 
+      array(':string' => $name, ':vids' => $vids))->fetchAll();
+
+  foreach ($result as $term) {
+    $matches[] = array(
+      'tid' => $term->tid,
+      'vocabulary' => $vocabularies[$term->vid],
+    );
+  }
+  $matched_term = array_pop($matches);
+  cache_set('search_facet_term_' . $machine_name, $matched_term);
+  return $matched_term;
+}
+
+/**
+ * Implements hook_search_api_solr_query_alter().
+ */
+function search_api_solr_synonyms_search_api_solr_query_alter(&$call_args, SearchApiQueryInterface $query) {
+  $call_args['params']['bf'][] = 'sum(fs_field_item_above_the_fold_rank,3)';
+  $call_args['params']['bf'][] = 'product(fs_item_boost,50)';
+}
+
+/**
+ * Implements hook_search_api_processor_info().
+ */
+function search_api_solr_synonyms_search_api_processor_info() {
+  $processors['search_api_tokenize_append'] = array(
+    'name' => t('Tokenize and Append'),
+    'description' => t('Tokenize the value and append to original.'),
+    'class' => 'SearchApiTokenizeAppend',
+    'weight' => 40,
+  );
+
+  return $processors;
+}

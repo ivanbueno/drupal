@@ -1,0 +1,8 @@
+name = "Search Api Solr Synonyms"
+description = "Various utilities and helpers for search_api_solr"
+core = "7.x"
+package = "facetapi"
+files[] = includes/search_api_solr_synonyms_filter_empty_display.inc
+files[] = includes/search_api_solr_synonyms_active_price.inc
+files[] = includes/search_api_solr_synonyms_boost_items.inc
+files[] = includes/processor_tokenize_append.inc
