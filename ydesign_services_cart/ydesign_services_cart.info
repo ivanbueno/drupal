@@ -1,0 +1,5 @@
+name = YDesign Services - Cart
+description = API resources for managing the cart and orders
+core = 7.x
+package = YDesign
+dependencies[] = ydesign_order_post_xml

@@ -1,0 +1,72 @@
+<?php
+/**
+ * @file
+ */
+
+/**
+ * Implements hook_services_resources().
+ */
+function ydesign_services_cart_services_resources() {
+  $resources = array();
+
+  // Define a resource for ycs consumers
+  $resources['ydesign_services_cart'] = array(
+    'actions' => array(
+      
+      // Get the orderxml of an order
+      'orderxml' => array(
+        'file' => array('type' => 'inc', 'module' => 'ydesign_services_cart', 'name' => 'resources/cart'),
+        'help'   => t('This method returns the orderxml of an order'),
+        'access arguments' => array('administer commerce_order entities'),
+        'callback' => 'ydesign_services_cart_get_orderxml',
+        'args'     => array(
+          array(
+            'name'         => 'order_id',
+            'type'         => 'string',
+            'description'  => t('The order id of the orderxml'),
+            'source' => array('path' => 1),
+            'optional'     => FALSE,
+          ),
+        ),
+      ),
+      
+      // Add a product to the cart
+      'addtocart' => array(
+        'file' => array('type' => 'inc', 'module' => 'ydesign_services_cart', 'name' => 'resources/cart'),
+        'help'   => t('This method adds a product to the active cart'),
+        'access arguments' => array('view any commerce_product entity'),
+        'callback' => 'ydesign_services_cart_addtocart',
+        'args'     => array(
+          array(
+            'name'         => 'signature',
+            'type'         => 'array',
+            'description'  => t('The id of the product'),
+            'source' => 'data',
+            'optional'     => FALSE,
+          ),
+        ),
+      ),
+				
+			// Add a product to the wishlist
+      'addtowishlist' => array(
+        'file' => array('type' => 'inc', 'module' => 'ydesign_services_cart', 'name' => 'resources/cart'),
+        'help'   => t('This method adds a product to the user wishlist'),
+        'access arguments' => array('view any commerce_product entity'),
+        'callback' => 'ydesign_services_cart_addtowishlist',
+        'args'     => array(
+          array(
+            'name'         => 'signature',
+            'type'         => 'array',
+            'description'  => t('The id of the product'),
+            'source' => 'data',
+            'optional'     => FALSE,
+          ),
+        ),
+      ),	
+				
+        
+    ),
+  );
+
+  return $resources;
+}
