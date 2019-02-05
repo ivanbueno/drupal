@@ -1,0 +1,7 @@
+name = GE
+description = GE features and tweaks
+core = 7.x
+package = GE
+
+files[] = ge_handler_filter_author_select.inc
+files[] = ge.views.inc

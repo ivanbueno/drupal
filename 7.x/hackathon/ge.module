@@ -1,0 +1,268 @@
+<?php
+
+/**
+ * Implements hook_menu()
+ */
+function ge_menu() {
+  $items['node/%node/project/%node/join'] = array(
+    'title' => 'Join a hackathon project',
+    'description' => 'Join a hackathon project',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ge_hackathon_project_join_form', 1, 3),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_is_logged_in',
+    'file' => 'includes/ge.hackathon.inc',
+  );
+  $items['node/%node/project/%node/leave'] = array(
+    'title' => 'Leave a hackathon project',
+    'description' => 'Leave a hackathon project',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ge_hackathon_project_leave_form', 1, 3),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_is_logged_in',
+    'file' => 'includes/ge.hackathon.inc',
+  );
+  $items['node/%node/project/%node/decline'] = array(
+    'title' => 'Decline a hackathon project',
+    'description' => 'Decline a hackathon project',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ge_hackathon_project_decline_form', 1, 3),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_is_logged_in',
+    'file' => 'includes/ge.hackathon.inc',
+  );
+  $items['node/%node/project/%node/accept'] = array(
+    'title' => 'Accept a hackathon project',
+    'description' => 'Accept a hackathon project',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ge_hackathon_project_accept_form', 1, 3),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_is_logged_in',
+    'file' => 'includes/ge.hackathon.inc',
+  );
+  $items['node/%node/project/%node/transfer'] = array(
+    'title' => 'Transfer a hackathon project',
+    'description' => 'Transfer a hackathon project',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ge_hackathon_project_transfer_form', 1, 3),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_is_logged_in',
+    'file' => 'includes/ge.hackathon.inc',
+  );
+  $items['node/%node/project/%node/complete'] = array(
+    'title' => 'Submit a hackathon project for review',
+    'description' => 'Submit a hackathon project for review',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ge_hackathon_project_complete_form', 1, 3),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_is_logged_in',
+    'file' => 'includes/ge.hackathon.inc',
+  );
+  $items['node/%node/project/%node/withdraw'] = array(
+    'title' => 'Withdraw a hackathon project from review',
+    'description' => 'Withdraw a hackathon project from review',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ge_hackathon_project_withdraw_form', 1, 3),
+    'type' => MENU_CALLBACK,
+    'access callback' => 'user_is_logged_in',
+    'file' => 'includes/ge.hackathon.inc',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function ge_form_user_register_form_alter(&$form, &$form_state, $form_id) {
+
+  // Remove password confirmation field on User Registration
+  $form['account']['pass']['#type'] = 'password';
+  $form['account']['pass']['#title'] = 'Password';
+
+  // Remove field descriptions of Email and Password on User Registration
+  $form['account']['pass']['#description'] = '';
+  $form['account']['mail']['#description'] = '';
+}
+
+/**
+ * Implements of hook_views_api().
+ */
+function ge_views_api() {
+  return array('api' => 3);
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function ge_node_insert($node) {
+  switch ($node->type) {
+    case 'project':
+      $event_nid = check_plain($_GET['event']);
+
+      // Attach the project to the Event
+      if ($event_nid) {
+        $event_node = node_load($event_nid);
+        $event_node_wrapper = entity_metadata_wrapper('node', $event_node);
+        $event_node_wrapper->field_projects[] = intval($node->nid);
+        $event_node_wrapper->save(TRUE);
+      }
+
+      break;
+  }
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function ge_node_presave($node) {
+
+  switch ($node->type) {
+    case 'project':
+
+      if ($node->is_new) {
+        global $user;
+
+        // Attach the creator as a member of the project
+        $fc_item = entity_create('field_collection_item', array('field_name' => 'field_project_members'));
+        $fc_item->setHostEntity('node', $node);
+        $fc_wrapper = entity_metadata_wrapper('field_collection_item', $fc_item);
+        $fc_wrapper->field_member_name->set($user->uid);
+        $fc_wrapper->field_member_role->set(6);
+
+        // Attach parent event to the project
+        $event_nid = check_plain($_GET['event']);
+        if ($event_nid) {
+          $node->field_parent_event[$node->language][]['target_id'] = intval($event_nid);
+        }
+
+      }
+
+      break;
+  }
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function ge_block_info() {
+  $blocks = array();
+  $blocks['hackathon_projects_by_user'] = array(
+    'info' => t('Projects By User'),
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ *
+ * @param string $delta
+ */
+function ge_block_view($delta = '') {
+  $block = array();
+
+  switch($delta) {
+    case 'hackathon_projects_by_user':
+      global $user;
+
+      module_load_include('inc', 'ge', 'includes/hackathon.class');
+      $my_projects = Hackathon::get_projects_by_user($user->uid);
+
+      $header = array();
+      $rows[] = array('You are not a member of any projects.');
+      if ($my_projects) {
+        $rows = array();
+        $header = array('Event', 'Project', 'Role');
+        foreach ($my_projects as $pid => $project) {
+          $rows[] = array(
+            l($project['event']['title'], 'node/' . $project['event']['nid']),
+            l($project['title'], 'node/' . $pid),
+            $project['role'],
+          );
+        }
+      }
+
+      $block['content'] = theme('table', array('header' => $header, 'rows' => $rows));
+      break;
+  }
+
+  return $block;
+}
+
+/**
+ * Implementation of hook_rules_event_info()
+ */
+function ge_rules_event_info() {
+  return array(
+    'ge_hackathon_project_member_join' => array(
+      'label' => t('Project Member Joins'),
+      'module' => 'ge',
+      'group' => 'Hackathon' ,
+      'variables' => array(
+        'current_user' => array('type' => 'user', 'label' => t('The current logged in user.')),
+        'project' => array('type' => 'node', 'label' => t('The project node.')),
+      ),
+    ),
+    'ge_hackathon_project_member_leave' => array(
+      'label' => t('Project Member Leaves'),
+      'module' => 'ge',
+      'group' => 'Hackathon' ,
+      'variables' => array(
+        'current_user' => array('type' => 'user', 'label' => t('The current logged in user.')),
+        'project' => array('type' => 'node', 'label' => t('The project node.')),
+      ),
+    ),
+    'ge_hackathon_project_declined' => array(
+      'label' => t('Project Declined'),
+      'module' => 'ge',
+      'group' => 'Hackathon' ,
+      'variables' => array(
+        'current_user' => array('type' => 'user', 'label' => t('The current logged in user.')),
+        'project' => array('type' => 'node', 'label' => t('The project node.')),
+      ),
+    ),
+    'ge_hackathon_project_accepted' => array(
+      'label' => t('Project Accepted'),
+      'module' => 'ge',
+      'group' => 'Hackathon' ,
+      'variables' => array(
+        'current_user' => array('type' => 'user', 'label' => t('The current logged in user.')),
+        'project' => array('type' => 'node', 'label' => t('The project node.')),
+      ),
+    ),
+    'ge_hackathon_project_completed' => array(
+      'label' => t('Project Completed'),
+      'module' => 'ge',
+      'group' => 'Hackathon' ,
+      'variables' => array(
+        'current_user' => array('type' => 'user', 'label' => t('The current logged in user.')),
+        'project' => array('type' => 'node', 'label' => t('The project node.')),
+      ),
+    ),
+    'ge_hackathon_project_withdrawn' => array(
+      'label' => t('Project Withdrawn'),
+      'module' => 'ge',
+      'group' => 'Hackathon' ,
+      'variables' => array(
+        'current_user' => array('type' => 'user', 'label' => t('The current logged in user.')),
+        'project' => array('type' => 'node', 'label' => t('The project node.')),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_mail().
+ *
+ * @param $key
+ * @param $message
+ * @param $params
+ */
+function ge_mail($key, &$message, $params) {
+  switch ($key) {
+    case 'event_news_notify':
+      $message['headers'] += $params['headers'];
+      $message['subject'] = $params['subject'];
+      $message['body'][] = $params['body'];
+      break;
+  }
+}
