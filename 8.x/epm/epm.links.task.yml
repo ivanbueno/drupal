@@ -1,0 +1,4 @@
+epm.user_card:
+  route_name: epm.user_card
+  base_route: entity.user.canonical
+  title: 'Card'

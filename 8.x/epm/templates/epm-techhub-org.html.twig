@@ -1,0 +1,157 @@
+{%  set children_param = children|join(',') %}
+
+<section class="no-pad">
+    <div class="container no-pad">
+        <div class="row margin-x-md">
+            <div class="col-md-10">
+                <div class="row margin-bottom-sm">
+                    <div class="col-md-3 padding-y-xs">
+                        <div class="padding-sm panel">
+                            <div class="row">
+                                <div class="col-xs-4 text-align-left">
+                                    <i class="text-danger-force icon icon-flag icon-jumbo no-margin-bottom">‌</i>
+                                </div>
+                                <div class="col-xs-8">
+                                    <p class="sub alt-font no-margin">Hubs</p>
+                                    <h3><strong>{{ children|length }}</strong></h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 padding-y-xs">
+                        <div class="padding-sm panel">
+                            <div class="row">
+                                <div class="col-xs-4 text-align-left">
+                                    <i class="text-warning-force icon icon-clock icon-jumbo no-margin-bottom">‌</i>
+                                </div>
+                                <div class="col-xs-8">
+                                    <p class="sub alt-font no-margin">Avg Wait Time</p>
+                                    <h4><strong>{{ stats.productivity.wait }}</strong></h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 padding-y-xs">
+                        <div class="padding-sm panel">
+                            <div class="row">
+                                <div class="col-xs-4 text-align-left">
+                                    <i class="text-info-force icon icon-tools-2 icon-jumbo no-margin-bottom">‌</i>
+                                </div>
+                                <div class="col-xs-8">
+                                    <p class="sub alt-font no-margin">Avg Service Time</p>
+                                    <h4><strong>{{ stats.productivity.service }}</strong></h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 padding-y-xs">
+                        <div class="padding-sm panel">
+                            <div class="row">
+                                <div class="col-xs-4 text-align-left">
+                                    <i class="text-success-force icon icon-shield icon-jumbo no-margin-bottom">‌</i>
+                                </div>
+                                <div class="col-xs-8">
+                                    <p class="sub alt-font no-margin">Aptitude</p>
+                                    <h3>
+                                        <strong>
+                                            {% if stats.ticket_status.ticket_status_archive + stats.ticket_status.ticket_status_complete + stats.ticket_status.ticket_status_defer + stats.ticket_status.ticket_status_in_progress %}
+                                                {{  (stats.ticket_status.ticket_status_complete  / (stats.ticket_status.ticket_status_archive + stats.ticket_status.ticket_status_complete + stats.ticket_status.ticket_status_defer + stats.ticket_status.ticket_status_in_progress) * 100)|round }}%
+                                            {% else %}
+                                                n/a
+                                            {% endif %}
+                                        </strong>
+                                    </h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row margin-bottom-sm">
+                    <div class="col-md-3 padding-y-xs">
+                        <div class="padding-sm panel">
+                            <div class="row">
+                                <div class="col-xs-3 text-align-left">
+                                    <i class="text-info-force icon icon-hourglass icon-jumbo no-margin-bottom">‌</i>
+                                </div>
+                                <div class="col-xs-9">
+                                    <p class="sub alt-font no-margin">Productivity</p>
+                                    <h4><strong>{{ stats.productivity.time }}</strong></h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 padding-y-xs">
+                        <div class="padding-sm panel">
+                            <div class="row">
+                                <div class="col-xs-4 text-align-left">
+                                    <i class="text-success-force icon icon-wallet icon-jumbo no-margin-bottom">‌</i>
+                                </div>
+                                <div class="col-xs-8 padding-left-lg">
+                                    <p class="sub alt-font no-margin">Savings</p>
+                                    <h4><strong>${{ stats.productivity.money }}</strong></h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 padding-y-xs">
+                        <div class="padding-sm panel">
+                            <div class="row">
+                                <div class="col-xs-4 text-align-left">
+                                    <i class="sway text-warning-force icon icon-happy icon-jumbo no-margin-bottom">‌</i>
+                                </div>
+                                <div class="col-xs-8">
+                                    <p class="sub alt-font no-margin">Customers</p>
+                                    <h3><strong>{{ drupal_view('techhub_charts_total_visits', 'block_1', children_param) }}</strong></h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 padding-y-xs">
+                        <div class="padding-sm panel">
+                            <div class="row">
+                                <div class="col-xs-4 text-align-left">
+                                    <i class="text-danger-force icon icon-heart icon-jumbo no-margin-bottom">‌</i>
+                                </div>
+                                <div class="col-xs-8 padding-left-lg">
+                                    <p class="sub alt-font no-margin">NPS</p>
+                                    <h3><strong>{{ stats.nps.score|round }}</strong></h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                 <div class="row">
+                    <div class="col-sm-12 col-md-6 padding-y-xs">
+                        <div class="panel padding-sm">
+                           {{ drupal_view('techhub_charts_visitors', 'block_1', children_param) }}
+                        </div>
+                    </div>
+                    <div class="col-sm-12 col-md-6 padding-y-xs">
+                        <div class="panel padding-sm">
+                            {{ drupal_view('techhub_charts_ticket_categories', 'block_1', children_param) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2 padding-left-xs no-pad-right">
+                <div class="row">
+                    <div class="col-sm-12 col-md-12">
+                        <div class="panel padding-sm" style="height: 395px; overflow-y: auto;">
+                            {{ drupal_view('techhub_charts_agents', 'block_1', children_param) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="no-pad-top padding-bottom-lg">
+    <div class="container padding-y-md">
+        <div class="row padding-y-xs">
+            {{ drupal_view('techhub_org_hubs', 'block_1') }}
+        </div>
+    </div>
+</section>
+
+{{ fields.field_hub_content }}

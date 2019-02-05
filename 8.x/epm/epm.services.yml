@@ -1,0 +1,23 @@
+services:
+  epm.techhub:
+    class: Drupal\epm\Service\Techhub
+    arguments: ['@database', '@event_dispatcher']
+  access_check.access_hub_admin:
+      class: Drupal\epm\Access\TechhubAdminAccessCheck
+      arguments: ['@current_user']
+      tags:
+        - { name: access_check, applies_to: _access_hub_admin }
+  epm.route_subscriber:
+    class: Drupal\epm\Routing\RouteSubscriber
+    tags:
+      - { name: event_subscriber }
+  epm.epm_event_subscriber:
+    class: Drupal\epm\EventSubscriber\EpmEventSubscriber
+    tags:
+      - {name: event_subscriber}
+  epm.google_vision_api:
+    class: Drupal\epm\Service\GoogleVisionApi
+    arguments: ['@config.factory', '@http_client']
+  epm.google_language_api:
+    class: Drupal\epm\Service\GoogleLanguageApi
+    arguments: ['@config.factory', '@http_client']

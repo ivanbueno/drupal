@@ -1,0 +1,10 @@
+epm.google_vision_settings:
+  type: config_object
+  label: 'Google Vision settings'
+  mapping:
+    api_key:
+      type: string
+      label: 'Google Vision Api Key'
+    max_results_labels:
+      type: integer
+      label: 'Maximum results for Label Detection'

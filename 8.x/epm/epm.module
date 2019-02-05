@@ -1,0 +1,287 @@
+<?php
+
+/**
+ * @file
+ * EPM TechHub features and functions.
+ */
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Component\Utility\Random;
+use Drupal\Core\Access\AccessResult;
+use Drupal\taxonomy\Entity\Term;
+use Drupal\node\NodeInterface;
+use Drupal\Component\Utility\Html;
+
+function epm_options_list_alter(array &$options, array $context) {
+
+    // Only show HUBS the agent has permission to access in the dropdown list.
+    if ($context['fieldDefinition']->id() == 'node.ticket.field_ticket_hub') {
+
+        // Get the accessible hubs of the Agent
+        /* @var \Drupal\epm\Service\Techhub $techhub */
+        $techhub = \Drupal::service('epm.techhub');
+        $allowed_options = $techhub->getHubsByAdmin(\Drupal::currentUser()->id());
+
+        // Save the current hub of an existing ticket
+        $default_value = $context['entity']->field_ticket_hub->getString();
+        $default_name = $default_value ? $options[$default_value] : NULL;
+
+        $_none = isset($options['_none']) ? $options['_none'] : NULL;
+        $options = [];
+        if ($_none) {
+            $options['_none'] = $_none;
+        }
+
+        if ($default_value) {
+            $options[$default_value] = $default_name;
+            unset($allowed_options[$default_value]);
+        }
+
+        $options += $allowed_options;
+    }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function epm_form_node_card_form_alter(&$form, FormStateInterface &$form_state, $form_id) {
+    $form['field_card_first_name']['#attributes']['class'][] = 'hidden';
+    $form['field_card_last_name']['#attributes']['class'][] = 'hidden';
+    $form['field_card_email']['#attributes']['class'][] = 'hidden';
+    $form['field_card_hub']['#attributes']['class'][] = 'hidden';
+    $form['field_card_text']['#attributes']['class'][] = 'hidden';
+    $form['field_card_user']['#attributes']['class'][] = 'hidden';
+    $form['field_card_phone']['#attributes']['class'][] = 'hidden';
+    $form['field_card_website']['#attributes']['class'][] = 'hidden';
+    $form['actions']['submit']['#attributes']['class'][] = 'btn-primary';
+
+    $hub = \Drupal::request()->get('hub');
+    if ($hub && empty($form['field_card_hub']['widget'][0]['target_id']['#default_value'])) {
+        $term = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($hub);
+        $form['field_card_hub']['widget'][0]['target_id']['#default_value'] = $term;
+    }
+
+    // Attach an EPM submit callback to Node Submit
+    foreach (array_keys($form['actions']) as $action) {
+        if ($action != 'preview' && isset($form['actions'][$action]['#type']) && $form['actions'][$action]['#type'] === 'submit') {
+            $form['actions'][$action]['#submit'][] = 'epm_node_add_submit_redirect';
+        }
+    }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function epm_form_taxonomy_term_hubs_form_alter(&$form, FormStateInterface &$form_state, $form_id) {
+    $random = new Random();
+
+    // Prepopulate access key when creating a hub
+    if (empty($form['field_hub_access_key']['widget'][0]['value']['#default_value'])) {
+        $form['field_hub_access_key']['widget'][0]['value']['#default_value'] = strtolower($random->name(20));
+    }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function epm_form_node_ticket_form_alter(&$form, FormStateInterface &$form_state, $form_id) {
+    // Attach an EPM submit callback to Node Submit
+    foreach (array_keys($form['actions']) as $action) {
+        if ($action != 'preview' && isset($form['actions'][$action]['#type']) && $form['actions'][$action]['#type'] === 'submit') {
+            $form['actions'][$action]['#submit'][] = 'epm_node_add_submit_redirect';
+        }
+    }
+}
+
+
+function epm_node_add_submit_redirect($form, FormStateInterface $form_state) {
+    /* @var Drupal\node\NodeInterface $node */
+    $node = $form_state->getFormObject()->getEntity();
+
+    // If the node is a ticket, redirect to its corresponding hub page.
+    if ($node->bundle() == 'ticket') {
+        $form_state->setRedirect(
+            'epm.hub',
+            ['taxonomy_term' => $node->field_ticket_hub->getString()]
+        );
+    }
+    elseif ($node->bundle() == 'card') {
+        $form_state->setRedirect(
+            'epm.hub',
+            ['taxonomy_term' => $node->field_card_hub->getString()]
+        );
+    }
+}
+
+/**
+ * Implements hook_node_access().
+ *
+ * Enforces our access rules for custom workflow target content to force updates
+ * based on TechhubAccessCheck
+ */
+function epm_node_access($node, $op, $account) {
+
+    // Allow agent to edit any tickets associated to hubs they have access to.
+    if ($op == 'update' && $node->getType() == 'ticket') {
+        $current_hub = Term::load($node->get('field_ticket_hub')->target_id);
+
+        /* @var \Drupal\epm\Service\Techhub $techhub */
+        $techhub = \Drupal::service('epm.techhub');
+        if ($techhub->access($current_hub, $account)) {
+            return AccessResult::allowed();
+        }
+
+    }
+    // Else ignore altering access
+    return AccessResult::neutral();
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_access() for taxonomy_term.
+ */
+function epm_taxonomy_term_access($term, $op, $account) {
+    switch ($op) {
+        case 'view':
+        case 'update':
+            /* @var \Drupal\epm\Service\Techhub $techhub */
+            $techhub = \Drupal::service('epm.techhub');
+            return AccessResult::allowedIf($term->getVocabularyId() == 'hubs' && $techhub->access($term, $account, NULL, TRUE));
+            break;
+    }
+    return AccessResult::neutral();
+}
+
+/**
+ * Implements hook_node_presave().
+ *
+ * @param NodeInterface $node
+ */
+function epm_node_presave(NodeInterface $node) {
+    if (!$node->isNew() && $node->getType() == 'ticket') {
+        if (!$node->getOwnerId()) {
+            $node->setOwnerId(\Drupal::currentUser()->id());
+        }
+    }
+
+    // Scan image, convert to text, and extract user info.
+    if ($node->isNew() && $node->getType() == 'card') {
+        $file_reference = $node->get('field_card_image')->getValue();
+        $uploaded_file = \Drupal\file\Entity\File::load($file_reference[0]['target_id']);
+        if ($filepath = \Drupal::service('file_system')->realpath($uploaded_file->getFileUri())) {
+
+            /* @var \Drupal\epm\Service\Techhub $techhub */
+            $techhub = \Drupal::service('epm.techhub');
+            $text_annotation = $techhub->analyzeText($filepath);
+
+            $node->set('field_card_text', $text_annotation['text']);
+            $node->set('field_card_first_name', $text_annotation['first_name']);
+            $node->set('field_card_last_name', $text_annotation['last_name']);
+            $node->set('field_card_phone', $text_annotation['phone']);
+            $node->set('field_card_website', $text_annotation['url']);
+            $node->set('field_card_email', $text_annotation['email']);
+
+            if ($text_annotation['email']) {
+                $user = $techhub->saveUser(
+                    $text_annotation['email'],
+                    $text_annotation['first_name'],
+                    $text_annotation['last_name'],
+                    NULL,
+                    $node->get('field_card_hub')->getString(),
+                    FALSE,
+                    FALSE);
+                $node->set('field_card_user', $user->id());
+
+                // If the hub is an Exhibit, send the promo email to the user.
+                // Otherwise, create a regular ticket.
+                $hub = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->load($node->get('field_card_hub')->getString());
+                $is_hub_exhibit = $hub->get('field_hub_exhibit')->getString();
+
+                if ($is_hub_exhibit) {
+                    $ticket = $techhub->createTicket(
+                        $node->get('field_card_hub')->getString(),
+                        $user->id(),
+                        0,
+                        'ticket_status_complete',
+                        'Exhibit Sign Up'
+                    );
+                    $message = $techhub->prepareMail('exhibit_send_assets', [
+                        'to' => $text_annotation['email'],
+                        'first_name' => $text_annotation['first_name'],
+                        'last_name' => $text_annotation['last_name'],
+                        'hub' => $node->get('field_card_hub')->getString(),
+                    ]);
+                    $techhub->sendMail('default', $message);
+                }
+                else {
+                    $ticket = $techhub->createTicket($node->get('field_card_hub')->getString(), $user->id());
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Implements hook_theme().
+ *
+ * @param $existing
+ * @param $type
+ * @param $theme
+ * @param $path
+ * @return array
+ */
+function epm_theme($existing, $type, $theme, $path) {
+    return [
+        'epm_techhub_hub' => [
+            'variables' => [
+                'content' => NULL,
+                'parent' => NULL,
+                'children' => NULL,
+                'fields' => NULL,
+                'stats' => NULL,
+            ],
+        ],
+        'epm_techhub_user' => [
+            'variables' => [
+                'content' => NULL,
+                'fields' => NULL,
+            ],
+        ],
+        'epm_techhub_org' => [
+            'variables' => [
+                'content' => NULL,
+                'parent' => NULL,
+                'children' => NULL,
+                'fields' => NULL,
+                'stats' => NULL,
+            ],
+        ],
+        'epm_techhub_mail' => [
+            'variables' => [
+                'text' => NULL,
+                'tokens' => NULL,
+            ],
+        ],
+        'techhub_mass_import_form' => [
+            'render element' => 'form',
+        ],
+    ];
+}
+
+/**
+ * Implements hook_mail().
+ */
+function epm_mail($key, &$message, $params) {
+    switch ($key) {
+        case 'default':
+            $from = isset($params['from']) && $params['from'] ? $params['from'] : \Drupal::config('system.site')->get('mail');
+
+            $message['headers']['content-type'] = 'text/html; charset=UTF-8; format=flowed; delsp=yes';
+            $message['headers']['MIME-Version'] = '1.0';
+            $message['headers']['reply-to'] = $from;
+
+            $message['from'] = $from;
+            $message['subject'] = $params['subject'];
+            $message['body'][] = Html::escape($params['message']);
+            break;
+    }
+}

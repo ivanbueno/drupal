@@ -1,0 +1,11 @@
+epm-core:
+  version: 1.x
+  css:
+    theme:
+      css/epm-core.css: {}
+  js:
+    js/epm-core.js: {preprocess: false}
+  dependencies:
+    - views/views.ajax
+    - core/jquery.once
+    - core/drupalSettings

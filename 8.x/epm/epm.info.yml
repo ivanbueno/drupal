@@ -1,0 +1,6 @@
+name: EPM TechHub
+description: Custom EPM TechHub functions
+package: Custom
+type: module
+version: 1.0
+core: 8.x

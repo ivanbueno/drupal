@@ -1,0 +1,72 @@
+epm.swipe:
+  path: '/techhub/swipe/{user}'
+  defaults:
+    _controller: '\Drupal\epm\Controller\TechhubController::swipe'
+    _title: 'Swipe User'
+    user: '0'
+  requirements:
+    _permission: 'techhub level 1'
+    user: '^[a-zA-Z0-9_]+'
+
+epm.hub:
+  path: '/techhub/hub/{taxonomy_term}'
+  defaults:
+    _controller: '\Drupal\epm\Controller\TechhubController::hub'
+    _title_callback: '\Drupal\epm\Controller\TechhubController::getTitle'
+  requirements:
+    _access_hub_admin: 'TRUE'
+    taxonomy_term: \d+
+
+epm.user_card:
+  path: '/techhub/user/card/{user}'
+  defaults:
+    _controller: '\Drupal\epm\Controller\TechhubController::userCard'
+    _title: 'Card'
+    user: '0'
+  requirements:
+    _permission: 'techhub level 1'
+    user: '^[a-zA-Z0-9_]+'
+
+epm.ping_new_tickets:
+  path: '/techhub/ping/{taxonomy_term}/{timestamp}'
+  defaults:
+    _controller: '\Drupal\epm\Controller\TechhubController::pingNewTickets'
+    _title: 'Ping'
+  requirements:
+    _permission: 'access content'
+    taxonomy_term: \d+
+
+epm.checkin:
+  path: '/techhub/checkin/{taxonomy_term}'
+  defaults:
+    _form: '\Drupal\epm\Form\TechhubCheckInForm'
+    _title: 'Check In'
+  requirements:
+    _access_hub_admin: 'TRUE'
+    taxonomy_term: \d+
+
+epm.signup:
+  path: '/techhub/signup/{taxonomy_term}'
+  defaults:
+    _form: '\Drupal\epm\Form\TechhubSignUpForm'
+    _title: 'Sign Up'
+  requirements:
+    _permission: 'access content'
+    taxonomy_term: \d+
+
+epm.mass_import:
+  path: '/techhub/users/{taxonomy_term}'
+  defaults:
+    _form: '\Drupal\epm\Form\TechhubMassImport'
+    _title: 'Manage Users'
+  requirements:
+    _access_hub_admin: 'TRUE'
+    taxonomy_term: \d+
+
+epm.google_vision_settings:
+  path: '/admin/config/media/epm'
+  defaults:
+    _form: 'Drupal\epm\Form\GoogleVisionSettingsForm'
+    _title: 'Google vision settings'
+  requirements:
+    _permission: 'techhub level 2'

@@ -1,0 +1,33 @@
+
+        <section class="padding-x-lg">
+            <div class="container">
+                <div class="col-md-6">
+                    <div class="row padding-sm margin-sm bg-light">
+                        <h4 class="margin-bottom-sm">Users</h4>
+                        {{ drupal_view('techhub_manage_users', 'block_1') }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="row">
+                        <div class="col-md-12">
+                            {{ form.form_build_id }}
+                            {{ form.form_token }}
+                            {{ form.form_id }}
+
+                            {{ form.hub }}
+                            {{ form.csv }}
+                        </div>
+                    </div>
+                    <div class="row margin-top-md">
+                        <div class="col-md-12">
+                            <p><strong>Preview</strong></p>
+                            <div class="techhub-mass-import-preview padding-xs bg-light"><h4 class="text-center margin-lg">CLICK HERE TO REVIEW USERS.</h4></div>
+                            <div class="techhub-mass-import-warning padding-xs"></div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        {{ form.actions.submit }}
+                    </div>
+                </div>
+            </div>
+        </section>

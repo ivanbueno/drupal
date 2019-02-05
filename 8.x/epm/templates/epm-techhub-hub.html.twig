@@ -1,0 +1,21 @@
+{% if content.field_hub_exhibit.value %}
+    {% if content.field_hub_exhibit_cta_text.value %}
+        <section class="padding-x-lg techhub-call-to-action">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-12 text-center">
+                        <h3>{{ content.field_hub_exhibit_cta_text.value | raw }}</h3>
+                        <a data-dialog-type="modal" class="use-ajax btn btn-primary btn-lg btn-filled margin-x-md" href="/techhub/signup/{{ content.tid.value }}?destination={{ fields.destination }}">
+                            {% if content.field_hub_exhibit_cta_button.value %}
+                                {{ content.field_hub_exhibit_cta_button.value }}
+                            {% else %}
+                                Sign Up
+                            {% endif %}
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    {% endif %}
+{% endif %}
+{{ fields.field_hub_content }}

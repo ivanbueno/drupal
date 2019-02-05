@@ -1,0 +1,5 @@
+epm.google_vision_settings:
+  title: 'Google Vision settings'
+  parent: system.admin_config_media
+  description: 'Configure Google Vision.'
+  route_name: epm.google_vision_settings

@@ -1,0 +1,27 @@
+<div class="container" data-quickedit-entity-id="user/{{ content.uid.value }}">
+
+    <div class="row space-bottom-large space-top-large">
+        <div class="col-sm-2"></div>
+
+        <div class="col-sm-8">
+
+            <div class="row">
+                <div class="col-sm-4">
+                    {{ fields.user_picture }}
+                    <h4 class="space-top-small">{{ content.field_user_first_name.value }} {{ content.field_user_last_name.value }}</h4>
+                    <hr>
+                    <p>{{ content.mail.value }}</p>
+                </div>
+                <div class="col-sm-8">
+                    <img style="border: 1px solid #ccc; padding: 5px;" src="https://chart.googleapis.com/chart?chs=400&cht=qr&chl={{ url('<front>') }}techhub/swipe/{{ content.uid.value }}&chld=H|0" />
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="col-sm-2"></div>
+    </div>
+
+</div>
+
